@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(/data/ziyu/miniconda3/envs/quantvla/bin/python -c \"import torch; print\\(torch.cuda.device_count\\(\\), [torch.cuda.get_device_name\\(i\\) for i in range\\(torch.cuda.device_count\\(\\)\\)]\\)\")",
+      "Bash(nvidia-smi --query-gpu=index,memory.free,memory.total --format=csv,noheader)",
+      "Bash(CUDA_VISIBLE_DEVICES=2 LIBERO_CONFIG_PATH=/data/ziyu/.libero LIBERO_ROOT=/data/ziyu/LIBERO /data/ziyu/miniconda3/envs/quantvla/bin/python tools/aspq_jacobian_sanity.py --checkpoint /data/ziyu/checkpoints/gr00t-n1.5-libero-long-posttrain --num-samples 2 --random-dirs 4 --token-cap 256 --max-layers 12 --full-spectrum-top-k 4 --full-spectrum-extra 4 --output-dir /data/ziyu/QuantVLA/results/aspq_smoke)",
+      "Bash(CUDA_VISIBLE_DEVICES=2 PYTHONPATH=/data/ziyu/LIBERO:/data/ziyu/QuantVLA LIBERO_CONFIG_PATH=/data/ziyu/.libero LIBERO_ROOT=/data/ziyu/LIBERO /data/ziyu/miniconda3/envs/quantvla/bin/python tools/aspq_jacobian_sanity.py --checkpoint /data/ziyu/checkpoints/gr00t-n1.5-libero-long-posttrain --num-samples 2 --random-dirs 4 --token-cap 256 --max-layers 12 --full-spectrum-top-k 4 --full-spectrum-extra 4 --output-dir /data/ziyu/QuantVLA/results/aspq_smoke)",
+      "Bash(sed -n '170,210p' /data/ziyu/QuantVLA/gr00t/model/gr00t_n1.py)",
+      "Bash(sed -n '340,415p' /data/ziyu/QuantVLA/gr00t/model/action_head/flow_matching_action_head.py)",
+      "Bash(/data/ziyu/miniconda3/envs/quantvla/bin/python -c ' *)",
+      "Bash(jobs -l)",
+      "Bash(nvidia-smi --query-compute-apps=pid,used_memory,gpu_uuid --format=csv,noheader)",
+      "Bash(CUDA_VISIBLE_DEVICES=2 PYTHONPATH=/data/ziyu/LIBERO:/data/ziyu/QuantVLA LIBERO_CONFIG_PATH=/data/ziyu/.libero LIBERO_ROOT=/data/ziyu/LIBERO /data/ziyu/miniconda3/envs/quantvla/bin/python -u tools/aspq_jacobian_sanity.py --checkpoint /data/ziyu/checkpoints/gr00t-n1.5-libero-long-posttrain --num-samples 10 --random-dirs 8 --token-cap 512 --full-spectrum-top-k 20 --full-spectrum-extra 10 --output-dir /data/ziyu/QuantVLA/results/aspq_full)"
+    ]
+  }
+}
