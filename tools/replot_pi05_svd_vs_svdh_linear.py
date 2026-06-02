@@ -15,8 +15,8 @@ import numpy as np
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--csv",    default="/work/mingze/aspq/experiment_results/visualization_for_paper/pi05_svd_vs_svdh_quant_mse.csv")
-    ap.add_argument("--output", default="/work/mingze/aspq/experiment_results/visualization_for_paper/pi05_svd_vs_svdh_quant_mse_linear.png")
+    ap.add_argument("--csv",    default="experiment_results/visualization_for_paper/pi05_svd_vs_svdh_quant_mse.csv")
+    ap.add_argument("--output", default="experiment_results/visualization_for_paper/pi05_svd_vs_svdh_quant_mse_linear.png")
     args = ap.parse_args()
 
     rows = []

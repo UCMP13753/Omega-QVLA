@@ -30,7 +30,7 @@ from gr00t.quantization.duquant_preprocess import compute_duquant_rotation_only
 
 def build_a2lite_rotation(W: torch.Tensor, block: int = 64) -> torch.Tensor:
     """A2-lite rotation R ∈ ℝ^{in × in} from FP weight (no act_stats).
-    Equivalent to what build_aspq_gptq_weights.py does with
+    Equivalent to what build_gptq_weights.py does with
     --duquant-rot-mode svd_hadamard --duquant-permute --duquant-block-size 64.
     """
     R, perm = compute_duquant_rotation_only(
@@ -75,8 +75,8 @@ def relative_h_error(X_full: torch.Tensor, k_values: list[int], n_boot: int = 32
 
 
 def main():
-    src = Path("/work/mingze/aspq/experiment_results/svd_diagnostics_gr00t/xw_dump_object_cal_perstep2.pt")
-    out_dir = Path("/work/mingze/aspq/experiment_results/visualization_for_paper")
+    src = Path("experiment_results/svd_diagnostics_gr00t/xw_dump_object_cal_perstep2.pt")
+    out_dir = Path("experiment_results/visualization_for_paper")
     out_dir.mkdir(parents=True, exist_ok=True)
     cal = torch.load(src, weights_only=False)
 

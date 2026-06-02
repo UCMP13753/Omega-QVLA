@@ -44,10 +44,8 @@ def _quant_dequant_weight_groupwise(W: torch.Tensor, group_size: int, bits: int)
 class RTNLinear(nn.Module):
     """Drop-in replacement for nn.Linear with W4 groupwise + A4 per-token RTN.
 
-    Optional SmoothQuant pre-scaling (Xiao et al. 2022 NeurIPS):
-        s_j = max(|X_:,j|)^α / max(|W_:,j|)^(1-α),  α ∈ [0, 1]
-        W' = W · diag(s),  x' = x / diag(s)
-    Then RTN-quantize W' (per-group along input) and x' (per-token).
+    Pure round-to-nearest: weights are per-group asymmetric int4, activations
+    are per-token asymmetric int4. No rotation, no SmoothQuant, no calibration.
     """
 
     def __init__(
@@ -58,9 +56,6 @@ class RTNLinear(nn.Module):
         group_size: int,
         wbits: int,
         abits: int,
-        sq_record: dict | None = None,
-        sq_alpha: float = 0.5,
-        sq_clip: float = 1e3,
     ) -> None:
         super().__init__()
         self.name = name
@@ -78,21 +73,6 @@ class RTNLinear(nn.Module):
         self.group_size = gs
 
         W = lin.weight.data
-
-        # Optional SmoothQuant pre-scale on weight columns. ``_sq_s_inv`` is
-        # registered unconditionally (None if SQ disabled) so the buffer name
-        # is reserved before any submodule assignment.
-        self.register_buffer("_sq_s_inv", None, persistent=False)
-        if sq_record is not None and "act_max" in sq_record and "weight_max" in sq_record:
-            a = sq_record["act_max"].float().clamp(min=1e-5).to(W.device)
-            w_col = sq_record["weight_max"].float().clamp(min=1e-5).to(W.device)
-            sq_min = 1.0 / float(sq_clip)
-            s = (a.pow(float(sq_alpha)) / w_col.pow(1.0 - float(sq_alpha))).clamp(
-                min=sq_min, max=float(sq_clip)
-            )
-            s_dev = s.to(dtype=W.dtype)
-            W = W * s_dev[None, :]
-            self._sq_s_inv = (1.0 / s_dev).clone()
 
         W_deq = _quant_dequant_weight_groupwise(W, self.group_size, self.wbits)
         # Keep dequantized weight in the original dtype/device.
@@ -125,8 +105,6 @@ class RTNLinear(nn.Module):
         return x_deq.to(orig_dtype)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if self._sq_s_inv is not None:
-            x = x * self._sq_s_inv.to(dtype=x.dtype, device=x.device)
         x_q = self._quant_dequant_act(x)
         return F.linear(x_q, self.weight, self.bias)
 
@@ -177,28 +155,10 @@ def enable_rtn_if_configured(model: nn.Module) -> None:
     abits = int(env.get("GR00T_RTN_ABITS", "4"))
     dry_run = env.get("GR00T_RTN_DRYRUN", "0") not in ("0", "false", "False")
 
-    # SmoothQuant pre-scale (optional; matches Xiao et al. 2022 formula).
-    sq_path = env.get("GR00T_RTN_SMOOTHQUANT_PATH", "")
-    sq_alpha = float(env.get("GR00T_RTN_SMOOTHQUANT_ALPHA", "0.5"))
-    sq_clip = float(env.get("GR00T_RTN_SMOOTHQUANT_CLIP", "1e3"))
-    sq_data: dict | None = None
-    if sq_path and os.path.exists(sq_path):
-        try:
-            sq_data = torch.load(sq_path, map_location="cpu", weights_only=False)
-            print(
-                f"[GR00T-RTN] SmoothQuant pre-scale loaded from {sq_path} "
-                f"(α={sq_alpha}, clip={sq_clip}, layers in file={len(sq_data) if sq_data else 0})",
-                flush=True,
-            )
-        except Exception as exc:
-            print(f"[GR00T-RTN][WARN] failed to load SQ file {sq_path}: {exc}", flush=True)
-            sq_data = None
-
     targets = _select_targets(model, include, exclude)
     print(
         f"[GR00T-RTN] Matched Linear layers: {len(targets)} "
-        f"(group_size={group_size}, W{wbits}A{abits}, dry_run={dry_run}, "
-        f"smoothquant={'on' if sq_data else 'off'})"
+        f"(group_size={group_size}, W{wbits}A{abits}, dry_run={dry_run})"
     )
 
     if dry_run:
@@ -210,7 +170,6 @@ def enable_rtn_if_configured(model: nn.Module) -> None:
 
     replaced = 0
     skipped = 0
-    sq_applied = 0
     for name, mod in targets:
         if mod.in_features < group_size:
             print(
@@ -219,20 +178,11 @@ def enable_rtn_if_configured(model: nn.Module) -> None:
             skipped += 1
             continue
         parent, attr = _get_parent_module_and_attr(model, name)
-        sq_rec = sq_data.get(name) if sq_data is not None else None
-        if sq_rec is not None:
-            sq_applied += 1
-        rtn = RTNLinear(
-            mod, name=name, group_size=group_size, wbits=wbits, abits=abits,
-            sq_record=sq_rec, sq_alpha=sq_alpha, sq_clip=sq_clip,
-        )
+        rtn = RTNLinear(mod, name=name, group_size=group_size, wbits=wbits, abits=abits)
         setattr(parent, attr, rtn)
         print(
             f"[GR00T-RTN][REPLACED] {name}: Linear({mod.in_features}->{mod.out_features}) "
             f"-> RTNLinear W{wbits} A{abits} gs={rtn.group_size}"
         )
         replaced += 1
-    print(
-        f"[GR00T-RTN] Total layers replaced: {replaced} (skipped {skipped}, "
-        f"SQ-applied {sq_applied}/{replaced})"
-    )
+    print(f"[GR00T-RTN] Total layers replaced: {replaced} (skipped {skipped})")

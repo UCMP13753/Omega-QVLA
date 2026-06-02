@@ -55,30 +55,30 @@ def _env_enabled(name: str) -> bool:
 
 
 def _apply_quantization_if_requested(policy) -> None:
-    want_aspq = _env_enabled("GR00T_ASPQ_GPTQ")
+    want_gptq = _env_enabled("GR00T_GPTQ")
     want_duquant = any(
         k.startswith("GR00T_DUQUANT_") and k != "GR00T_DUQUANT_PACKDIR"
         for k in os.environ
     )
     want_rtn = any(k.startswith("GR00T_RTN") for k in os.environ)
-    if not (want_aspq or want_duquant or want_rtn):
+    if not (want_gptq or want_duquant or want_rtn):
         return
 
     if not getattr(policy, "_is_pytorch_model", False):
         raise RuntimeError(
-            "GR00T_ASPQ_GPTQ / GR00T_DUQUANT_* / GR00T_RTN* requires an OpenPI PyTorch "
+            "GR00T_GPTQ / GR00T_DUQUANT_* / GR00T_RTN* requires an OpenPI PyTorch "
             "checkpoint (a checkpoint directory containing model.safetensors). Convert "
             "the JAX pi05 checkpoint first, or run METHOD=fp16."
         )
 
     model = getattr(policy, "_model")
 
-    if want_aspq:
-        from gr00t.quantization import enable_aspq_gptq_if_configured
+    if want_gptq:
+        from gr00t.quantization import enable_gptq_if_configured
 
-        applied = enable_aspq_gptq_if_configured(model)
+        applied = enable_gptq_if_configured(model)
         if not applied:
-            raise RuntimeError("GR00T_ASPQ_GPTQ=1 was set, but no ASPQ-GPTQ layers were wrapped")
+            raise RuntimeError("GR00T_GPTQ=1 was set, but no GPTQ layers were wrapped")
 
     if want_duquant:
         from gr00t.quantization import enable_duquant_if_configured

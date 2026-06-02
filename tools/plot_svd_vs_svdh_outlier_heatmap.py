@@ -40,13 +40,13 @@ sys.path.insert(0, str(REPO_ROOT))
 from gr00t.quantization.duquant_preprocess import compute_duquant_rotation_only
 
 
-OUT_DIR = Path("/work/mingze/aspq/experiment_results/visualization_for_paper")
+OUT_DIR = Path("experiment_results/visualization_for_paper")
 BLOCK = 64
 QMAX = 7
 
 PROFILES = {
     "gr00t": {
-        "src": "/work/mingze/aspq/experiment_results/svd_diagnostics_gr00t/xw_dump_object_cal_perstep2.pt",
+        "src": "experiment_results/svd_diagnostics_gr00t/xw_dump_object_cal_perstep2.pt",
         "layers": [
             ("LLM.L02.down_proj", "LLM.L02.down_proj  —  structural pathology  (raw amax-ratio 48000×)"),
             ("LLM.L02.gate_proj", "LLM.L02.gate_proj  —  typical MLP layer  (SVD-only barely moves amax-ratio)"),
@@ -55,7 +55,7 @@ PROFILES = {
         "model_label": "gr00t-N1.5",
     },
     "pi05": {
-        "src": "/work/mingze/aspq/experiment_results/svd_diagnostics_gr00t/xw_dump_pi05_object_n4.pt",
+        "src": "experiment_results/svd_diagnostics_gr00t/xw_dump_pi05_object_n4.pt",
         "layers": [
             ("paligemma.L14.down_proj", "paligemma.L14.down_proj  —  pathology  (X channel-skew 156×)"),
             ("paligemma.L02.gate_proj", "paligemma.L02.gate_proj  —  typical MLP layer  (SVD-only stuck at 12.6×)"),

@@ -9,10 +9,10 @@
 #
 # Methods:
 #   fp16       : OpenPI checkpoint as-is.
-#   pure_gptq  : ASPQ-GPTQ runtime with a pure GPTQ pack.
-#   aspq_gptq  : ASPQ-GPTQ runtime with an ASPQ pack.
+#   pure_gptq  : GPTQ runtime with a pure GPTQ pack.
+#   gptq  : GPTQ runtime with a (rotation-baked) GPTQ pack.
 #
-# For aspq_gptq/pure_gptq, OPENPI_CHECKPOINT must be a converted PyTorch OpenPI
+# For gptq/pure_gptq, OPENPI_CHECKPOINT must be a converted PyTorch OpenPI
 # checkpoint directory containing model.safetensors.
 
 set -euo pipefail
@@ -21,13 +21,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/common_paths.sh"
 
-quantvla_activate_env "${QUANTVLA_CONDA_ENV:-custon_asr}"
+quantvla_activate_env "${QUANTVLA_CONDA_ENV:-omega_qvla}"
 quantvla_export_pythonpath
 quantvla_setup_cache_dirs
 quantvla_setup_libero_config
 
 CONDA_ROOT="$(quantvla_find_conda_root)"
-RUNNER_PY="${CONDA_ROOT}/envs/${QUANTVLA_CONDA_ENV:-custon_asr}/bin/python"
+RUNNER_PY="${CONDA_ROOT}/envs/${QUANTVLA_CONDA_ENV:-omega_qvla}/bin/python"
 
 export PYTHONNOUSERSITE=1 HF_HUB_DISABLE_XET=1 NO_ALBUMENTATIONS_UPDATE=1
 export MUJOCO_GL="${MUJOCO_GL:-egl}" PYOPENGL_PLATFORM="${PYOPENGL_PLATFORM:-egl}"
@@ -43,7 +43,7 @@ NUM_TRIALS_PER_TASK="${NUM_TRIALS_PER_TASK:-5}"
 NUM_STEPS_WAIT="${NUM_STEPS_WAIT:-10}"
 DENOISING_STEPS="${DENOISING_STEPS:-8}"
 REPLAN_STEPS="${REPLAN_STEPS:-5}"
-OPENPI_ROOT="${OPENPI_ROOT:-/work/mingze/openpi}"
+OPENPI_ROOT="${OPENPI_ROOT:-${HOME}/openpi}"
 OPENPI_PY="${OPENPI_PY:-${OPENPI_ROOT}/.venv/bin/python}"
 OPENPI_CONFIG="${OPENPI_CONFIG:-pi05_libero}"
 OPENPI_CHECKPOINT="${OPENPI_CHECKPOINT:-gs://openpi-assets/checkpoints/pi05_libero}"
@@ -86,46 +86,46 @@ OPENPI_EXCLUDE_DEFAULT='(?:^|\.)(vision_tower|vision_model|embeddings|embed_toke
 
 case "$METHOD" in
     fp16)
-        unset GR00T_ASPQ_GPTQ GR00T_ASPQ_GPTQ_PATH GR00T_ASPQ_GPTQ_INCLUDE GR00T_ASPQ_GPTQ_EXCLUDE
+        unset GR00T_GPTQ GR00T_GPTQ_PATH GR00T_GPTQ_INCLUDE GR00T_GPTQ_EXCLUDE
         unset GR00T_DUQUANT_INCLUDE GR00T_DUQUANT_EXCLUDE GR00T_ATM_ENABLE GR00T_OHB_ENABLE
         ;;
-    pure_gptq|aspq_gptq)
-        QUANT_PATH="${OPENPI_ASPQ_GPTQ_PATH:-${GR00T_ASPQ_GPTQ_PATH_OVERRIDE:-}}"
+    pure_gptq|gptq)
+        QUANT_PATH="${OPENPI_GPTQ_PATH:-${GR00T_GPTQ_PATH_OVERRIDE:-}}"
         if [ -z "${QUANT_PATH}" ]; then
-            echo "[pi05] ERROR: set OPENPI_ASPQ_GPTQ_PATH to the pi05 ${METHOD} pack (.pt)" >&2
+            echo "[pi05] ERROR: set OPENPI_GPTQ_PATH to the pi05 ${METHOD} pack (.pt)" >&2
             exit 2
         fi
         if [ ! -f "${QUANT_PATH}" ]; then
             echo "[pi05] ERROR: missing pack ${QUANT_PATH}" >&2
             exit 2
         fi
-        export GR00T_ASPQ_GPTQ=1
-        export GR00T_ASPQ_GPTQ_PATH="${QUANT_PATH}"
-        export GR00T_ASPQ_GPTQ_INCLUDE="${OPENPI_ASPQ_GPTQ_INCLUDE:-${OPENPI_INCLUDE_DEFAULT}}"
-        export GR00T_ASPQ_GPTQ_EXCLUDE="${OPENPI_ASPQ_GPTQ_EXCLUDE:-${OPENPI_EXCLUDE_DEFAULT}}"
-        export GR00T_ASPQ_GPTQ_WBITS_DEFAULT="${WBITS}"
-        export GR00T_ASPQ_GPTQ_ABITS="${ABITS}"
-        export GR00T_ASPQ_GPTQ_MISSING="${GR00T_ASPQ_GPTQ_MISSING:-error}"
-        unset GR00T_ATM_ENABLE GR00T_OHB_ENABLE GR00T_DUQUANT_ASPQ
+        export GR00T_GPTQ=1
+        export GR00T_GPTQ_PATH="${QUANT_PATH}"
+        export GR00T_GPTQ_INCLUDE="${OPENPI_GPTQ_INCLUDE:-${OPENPI_INCLUDE_DEFAULT}}"
+        export GR00T_GPTQ_EXCLUDE="${OPENPI_GPTQ_EXCLUDE:-${OPENPI_EXCLUDE_DEFAULT}}"
+        export GR00T_GPTQ_WBITS_DEFAULT="${WBITS}"
+        export GR00T_GPTQ_ABITS="${ABITS}"
+        export GR00T_GPTQ_MISSING="${GR00T_GPTQ_MISSING:-error}"
+        unset GR00T_ATM_ENABLE GR00T_OHB_ENABLE
         ;;
     hybrid)
         # Asymmetric: PaliGemma LLM via DuQuant runtime (A2-lite default),
-        # Gemma expert via ASPQ-GPTQ pack (SVDQuant custom/original).
-        # Caller MUST set OPENPI_ASPQ_GPTQ_PATH to the expert-only pack
-        # and OPENPI_ASPQ_GPTQ_INCLUDE / OPENPI_DUQUANT_INCLUDE to non-overlapping
+        # Gemma expert via GPTQ pack (SVDQuant custom/original).
+        # Caller MUST set OPENPI_GPTQ_PATH to the expert-only pack
+        # and OPENPI_GPTQ_INCLUDE / OPENPI_DUQUANT_INCLUDE to non-overlapping
         # regexes (one for expert, one for PaliGemma).
-        QUANT_PATH="${OPENPI_ASPQ_GPTQ_PATH:-${GR00T_ASPQ_GPTQ_PATH_OVERRIDE:-}}"
+        QUANT_PATH="${OPENPI_GPTQ_PATH:-${GR00T_GPTQ_PATH_OVERRIDE:-}}"
         if [ -z "${QUANT_PATH}" ] || [ ! -f "${QUANT_PATH}" ]; then
-            echo "[pi05] ERROR (hybrid): OPENPI_ASPQ_GPTQ_PATH must point at expert pack .pt" >&2
+            echo "[pi05] ERROR (hybrid): OPENPI_GPTQ_PATH must point at expert pack .pt" >&2
             exit 2
         fi
-        export GR00T_ASPQ_GPTQ=1
-        export GR00T_ASPQ_GPTQ_PATH="${QUANT_PATH}"
-        export GR00T_ASPQ_GPTQ_INCLUDE="${OPENPI_ASPQ_GPTQ_INCLUDE:?hybrid requires OPENPI_ASPQ_GPTQ_INCLUDE (expert regex)}"
-        export GR00T_ASPQ_GPTQ_EXCLUDE="${OPENPI_ASPQ_GPTQ_EXCLUDE:-${OPENPI_EXCLUDE_DEFAULT}}"
-        export GR00T_ASPQ_GPTQ_WBITS_DEFAULT="${WBITS}"
-        export GR00T_ASPQ_GPTQ_ABITS="${ABITS}"
-        export GR00T_ASPQ_GPTQ_MISSING="${GR00T_ASPQ_GPTQ_MISSING:-fallback}"
+        export GR00T_GPTQ=1
+        export GR00T_GPTQ_PATH="${QUANT_PATH}"
+        export GR00T_GPTQ_INCLUDE="${OPENPI_GPTQ_INCLUDE:?hybrid requires OPENPI_GPTQ_INCLUDE (expert regex)}"
+        export GR00T_GPTQ_EXCLUDE="${OPENPI_GPTQ_EXCLUDE:-${OPENPI_EXCLUDE_DEFAULT}}"
+        export GR00T_GPTQ_WBITS_DEFAULT="${WBITS}"
+        export GR00T_GPTQ_ABITS="${ABITS}"
+        export GR00T_GPTQ_MISSING="${GR00T_GPTQ_MISSING:-fallback}"
         # DuQuant on PaliGemma LLM only
         export GR00T_DUQUANT_INCLUDE="${OPENPI_DUQUANT_INCLUDE:?hybrid requires OPENPI_DUQUANT_INCLUDE (paligemma regex)}"
         export GR00T_DUQUANT_EXCLUDE="${OPENPI_DUQUANT_EXCLUDE:-${OPENPI_DUQUANT_EXCLUDE_DEFAULT}}"
@@ -139,10 +139,10 @@ case "$METHOD" in
         export GR00T_DUQUANT_PERM_SCORE="${GR00T_DUQUANT_PERM_SCORE:-weight}"
         export GR00T_DUQUANT_ROT_MODE="${GR00T_DUQUANT_ROT_MODE:-svd_hadamard}"
         export GR00T_DUQUANT_ACT_SCALE_MODE="${GR00T_DUQUANT_ACT_SCALE_MODE:-percentile}"
-        unset GR00T_ATM_ENABLE GR00T_OHB_ENABLE GR00T_DUQUANT_ASPQ
+        unset GR00T_ATM_ENABLE GR00T_OHB_ENABLE
         ;;
     rtn)
-        unset GR00T_ASPQ_GPTQ GR00T_ASPQ_GPTQ_PATH GR00T_ASPQ_GPTQ_INCLUDE GR00T_ASPQ_GPTQ_EXCLUDE
+        unset GR00T_GPTQ GR00T_GPTQ_PATH GR00T_GPTQ_INCLUDE GR00T_GPTQ_EXCLUDE
         unset GR00T_DUQUANT_INCLUDE GR00T_DUQUANT_EXCLUDE GR00T_ATM_ENABLE GR00T_OHB_ENABLE
         export GR00T_RTN=1
         export GR00T_RTN_INCLUDE="${OPENPI_RTN_INCLUDE:-${OPENPI_DUQUANT_INCLUDE_DEFAULT}}"
@@ -152,8 +152,7 @@ case "$METHOD" in
         export GR00T_RTN_ABITS="${GR00T_RTN_ABITS:-${ABITS}}"
         ;;
     duquant)
-        unset GR00T_ASPQ_GPTQ GR00T_ASPQ_GPTQ_PATH GR00T_ASPQ_GPTQ_INCLUDE GR00T_ASPQ_GPTQ_EXCLUDE
-        unset GR00T_DUQUANT_ASPQ
+        unset GR00T_GPTQ GR00T_GPTQ_PATH GR00T_GPTQ_INCLUDE GR00T_GPTQ_EXCLUDE
         # NOTE: GR00T_ATM_* / GR00T_OHB_* are intentionally NOT unset here so
         # callers can opt into pi0.5 ATM/OHB by exporting
         #   GR00T_ATM_SCOPE=pi05 GR00T_ATM_ALPHA_PATH=… GR00T_ATM_ENABLE=1 GR00T_OHB_ENABLE=1

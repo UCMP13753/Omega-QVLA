@@ -31,9 +31,9 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 
 
-SRC = "/work/mingze/aspq/experiment_results/svd_diagnostics_gr00t/xw_dump_object_cal_perstep2.pt"
-SRC_FFNET0 = "/work/mingze/aspq/experiment_results/svd_diagnostics_gr00t/xw_dump_object_cal_perstep_ffnet0.pt"
-OUT_DIR = Path("/work/mingze/aspq/experiment_results/visualization_for_paper")
+SRC = "experiment_results/svd_diagnostics_gr00t/xw_dump_object_cal_perstep2.pt"
+SRC_FFNET0 = "experiment_results/svd_diagnostics_gr00t/xw_dump_object_cal_perstep_ffnet0.pt"
+OUT_DIR = Path("experiment_results/visualization_for_paper")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 QMAX = 7  # symmetric int4
 NUM_STEPS = 8

@@ -15,12 +15,12 @@ Validation A (per-task drift):  run with the matching {ckpt, suite} pair
 errors across suites to verify the "object has cleaner low-rank outliers than
 long" hypothesis.
 
-Usage (under custon_asr conda env which has both LIBERO simulator and torch):
+Usage (under the omega_qvla conda env which has both LIBERO simulator and torch):
 
-    CUDA_VISIBLE_DEVICES=7 LIBERO_CONFIG_PATH=/home/mingze/.libero \\
-    /work/mingze/miniconda3/envs/custon_asr/bin/python \\
+    CUDA_VISIBLE_DEVICES=7 LIBERO_CONFIG_PATH=$LIBERO_CONFIG_PATH \\
+    python \\
       -m tools.diagnose_outlier_topology_gr00t \\
-      --checkpoint /work/mingze/models/VLA_ckpt/gr00t-n1.5-libero-object-posttrain \\
+      --checkpoint $CHECKPOINTS_ROOT/gr00t-n1.5-libero-object-posttrain \\
       --task-suite-name libero_object \\
       --num-samples 8 \\
       --output-tag object \\
@@ -383,7 +383,7 @@ def _gptq(W: torch.Tensor, H: torch.Tensor, bits: int = 4,
     """Wrapper for the codebase's gptq_quantize_weight."""
     global _GPTQ_FN
     if _GPTQ_FN is None:
-        from gr00t.quantization.aspq_gptq import gptq_quantize_weight as _g
+        from gr00t.quantization.gptq_layers import gptq_quantize_weight as _g
         _GPTQ_FN = _g
     return _GPTQ_FN(W, H, bits=bits, block_size=block_size,
                     damp_percent=damp_percent)

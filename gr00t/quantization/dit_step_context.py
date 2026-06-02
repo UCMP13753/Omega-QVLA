@@ -9,7 +9,7 @@ This module exposes a per-context "current DiT step" via ``contextvars``
 (thread- AND async-safe; child tasks inherit the value, mutations don't
 leak out).  The denoising loop in ``flow_matching_action_head.py`` enters
 ``set_dit_quant_step(t)`` per iteration; quantized linears
-(``AspqGptqLinear``) and calibration hooks read it via
+(``GptqLinear``) and calibration hooks read it via
 ``get_current_dit_step()`` to dispatch per-step activation scales / collect
 per-step calibration stats.
 

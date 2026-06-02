@@ -16,9 +16,16 @@
 #   SUITE  = object | spatial | goal | long  (required)
 #   GPU    = GPU index (default 0)
 set -uo pipefail
-REPO=/work/mingze/aspq
-PY=/work/mingze/miniconda3/envs/custon_asr/bin/python
-CKPT_ROOT=/work/mingze/models/VLA_ckpt
+REPO="${QUANTVLA_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+# shellcheck disable=SC1091
+source "${REPO}/scripts/common_paths.sh"
+quantvla_activate_env "${QUANTVLA_CONDA_ENV:-omega_qvla}"
+quantvla_export_pythonpath
+quantvla_setup_cache_dirs
+quantvla_setup_libero_config
+PY="$(command -v python)"
+CKPT_ROOT="${CHECKPOINTS_ROOT:?set CHECKPOINTS_ROOT to your checkpoints dir}"
+cd "$REPO"
 
 SUITE="${SUITE:?must set SUITE}"
 GPU="${GPU:-0}"
@@ -47,9 +54,6 @@ if [ -f "$DIT_OUT" ]; then
 else
     echo "[build][$SUITE] Step A: DiT-side SVDQ-naive on GPU $GPU"
     env CUDA_VISIBLE_DEVICES="$GPU" \
-        LIBERO_ROOT=/work/mingze/LIBERO \
-        LIBERO_CONFIG_PATH=/home/mingze/.libero \
-        QUANTVLA_CACHE_ROOT=/work/mingze/.cache/quantvla \
       "$PY" tools/build_dit_svdquant_weights.py \
         --checkpoint "$CKPT" \
         --base-pack  "$BASE" \
@@ -76,9 +80,6 @@ if [ -f "$LLM_OUT" ]; then
 else
     echo "[build][$SUITE] Step B: LLM-side SVDQ-naive on GPU $GPU"
     env CUDA_VISIBLE_DEVICES="$GPU" \
-        LIBERO_ROOT=/work/mingze/LIBERO \
-        LIBERO_CONFIG_PATH=/home/mingze/.libero \
-        QUANTVLA_CACHE_ROOT=/work/mingze/.cache/quantvla \
       "$PY" tools/build_dit_svdquant_weights.py \
         --checkpoint "$CKPT" \
         --base-pack  "$DIT_OUT" \

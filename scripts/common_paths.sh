@@ -14,7 +14,7 @@ quantvla_find_conda_root() {
     if [[ -n "${CONDA_EXE:-}" ]]; then
         candidates+=("$(cd "$(dirname "${CONDA_EXE}")/.." && pwd)")
     fi
-    candidates+=("/work/mingze/miniconda3" "${HOME}/miniconda3" "/ceph/workspace/xinyu/miniconda3")
+    candidates+=("${HOME}/miniconda3" "${HOME}/anaconda3" "/opt/conda")
 
     local candidate
     for candidate in "${candidates[@]}"; do
@@ -45,7 +45,6 @@ quantvla_default_libero_root() {
     fi
     candidates+=(
         "${QUANTVLA_ROOT}/../LIBERO"
-        "/work/mingze/LIBERO"
         "${HOME}/LIBERO"
     )
 
@@ -79,7 +78,7 @@ quantvla_export_pythonpath() {
 }
 
 quantvla_setup_cache_dirs() {
-    local cache_root="${QUANTVLA_CACHE_ROOT:-/work/mingze/.cache/quantvla}"
+    local cache_root="${QUANTVLA_CACHE_ROOT:-${HOME}/.cache/omega_qvla}"
     mkdir -p "${cache_root}/huggingface" "${cache_root}/torch" "${cache_root}/xdg"
 
     export QUANTVLA_CACHE_ROOT="${cache_root}"
@@ -91,7 +90,7 @@ quantvla_setup_cache_dirs() {
 }
 
 quantvla_setup_libero_config() {
-    local config_root="${LIBERO_CONFIG_PATH:-/work/mingze/.libero}"
+    local config_root="${LIBERO_CONFIG_PATH:-${HOME}/.libero}"
     mkdir -p "${config_root}"
     export LIBERO_CONFIG_PATH="${config_root}"
 }

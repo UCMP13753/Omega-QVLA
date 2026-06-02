@@ -37,22 +37,22 @@ sys.path.insert(0, str(REPO_ROOT))
 from gr00t.quantization.duquant_preprocess import compute_duquant_rotation_only
 
 
-OUT_DIR = Path("/work/mingze/aspq/experiment_results/visualization_for_paper")
+OUT_DIR = Path("experiment_results/visualization_for_paper")
 BLOCK = 64
 
 # (display_label, dump_path, layer_tag)
 LAYERS = [
     ("gr00t  LLM.L02.down_proj  —  pathology  (raw channel-skew 48000×)",
-     "/work/mingze/aspq/experiment_results/svd_diagnostics_gr00t/xw_dump_object_cal_perstep2.pt",
+     "experiment_results/svd_diagnostics_gr00t/xw_dump_object_cal_perstep2.pt",
      "LLM.L02.down_proj"),
     ("gr00t  LLM.L02.gate_proj  —  typical MLP  (raw skew 59×)",
-     "/work/mingze/aspq/experiment_results/svd_diagnostics_gr00t/xw_dump_object_cal_perstep2.pt",
+     "experiment_results/svd_diagnostics_gr00t/xw_dump_object_cal_perstep2.pt",
      "LLM.L02.gate_proj"),
     ("pi0.5  paligemma.L14.down_proj  —  pathology analog  (raw skew 156×)",
-     "/work/mingze/aspq/experiment_results/svd_diagnostics_gr00t/xw_dump_pi05_object_n4.pt",
+     "experiment_results/svd_diagnostics_gr00t/xw_dump_pi05_object_n4.pt",
      "paligemma.L14.down_proj"),
     ("pi0.5  paligemma.L02.gate_proj  —  typical MLP  (raw skew 12.4×)",
-     "/work/mingze/aspq/experiment_results/svd_diagnostics_gr00t/xw_dump_pi05_object_n4.pt",
+     "experiment_results/svd_diagnostics_gr00t/xw_dump_pi05_object_n4.pt",
      "paligemma.L02.gate_proj"),
 ]
 

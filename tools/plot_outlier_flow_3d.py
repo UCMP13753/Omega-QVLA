@@ -37,7 +37,7 @@ from gr00t.quantization.duquant_preprocess import (
 )
 
 
-OUT_DIR = Path("/work/mingze/aspq/experiment_results/visualization_for_paper")
+OUT_DIR = Path("experiment_results/visualization_for_paper")
 BLOCK = 64
 # Pick one strongly outlier'd layer per model (the same picks we've used
 # throughout this session). Pipeline figure produced per layer.
@@ -45,13 +45,13 @@ LAYERS = [
     # (label, src, layer-tag, z_clip_max, vcenter_red)
     # gr00t: DiT.L02.o_proj. Z clipped at 12, red transition starts at 6.
     ("gr00t",
-     "/work/mingze/aspq/experiment_results/svd_diagnostics_gr00t/xw_dump_object_cal_perstep2.pt",
+     "experiment_results/svd_diagnostics_gr00t/xw_dump_object_cal_perstep2.pt",
      "DiT.L02.o_proj",
      12.0,    # z-axis upper clip
      6.0),    # vcenter (red transition)
     # pi0.5: paligemma.L02.gate_proj. No z clip; red transition starts at 6.
     ("pi0.5",
-     "/work/mingze/aspq/experiment_results/svd_diagnostics_gr00t/xw_dump_pi05_object_n4.pt",
+     "experiment_results/svd_diagnostics_gr00t/xw_dump_pi05_object_n4.pt",
      "paligemma.L02.gate_proj",
      None,    # no z clip — use row max
      6.0),

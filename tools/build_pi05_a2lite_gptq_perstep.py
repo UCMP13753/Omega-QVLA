@@ -10,11 +10,11 @@ For each Expert Linear (Gemma):
   5. Per-step act_scale_table[t, j] = quantile(|X_r_t|, 0.999, dim=0) / qmax.
 
 Output format = "dit_svdquant_v1" with empty lowrank head (lowA/lowB shape [out, 0] / [in, 0]).
-AspqGptqLinear runtime auto-detects empty lowrank → INT4 path only + per-step scale dispatch.
+GptqLinear runtime auto-detects empty lowrank → INT4 path only + per-step scale dispatch.
 
 Run with the openpi venv:
-  /work/mingze/openpi/.venv/bin/python -m tools.build_pi05_a2lite_gptq_perstep \\
-      --checkpoint /work/mingze/models/VLA_ckpt/pi05_libero_pytorch \\
+  $OPENPI_ROOT/.venv/bin/python -m tools.build_pi05_a2lite_gptq_perstep \\
+      --checkpoint $CHECKPOINTS_ROOT/pi05_libero_pytorch \\
       --obs-path duquant_act_stats/pi05_libero_object_obs.pt \\
       --output results/multisuite_packs/pi05_object_a2lite_gptq_perstep_cal10/quantized.pt \\
       --max-samples 10 --num-steps 10 --gptq-damp-percent 0.05
@@ -35,7 +35,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
 from gr00t.quantization.dit_step_context import get_current_dit_step  # noqa: E402
-from gr00t.quantization.aspq_gptq import gptq_quantize_weight  # noqa: E402
+from gr00t.quantization.gptq_layers import gptq_quantize_weight  # noqa: E402
 from gr00t.quantization.duquant_preprocess import qmax, pack_weight  # noqa: E402
 
 
@@ -301,7 +301,7 @@ def main():
             "lowrank_B": empty_B.to(save_dtype).cpu().contiguous(),
             "act_scale_table": table.to(torch.float32).cpu().contiguous(),
             "duquant_rotation": rotation_R.to(save_dtype).cpu().contiguous(),
-            # Fast runtime path (block-diag bmm + perm) — see aspq_gptq.py
+            # Fast runtime path (block-diag bmm + perm) — see gptq_layers.py
             # _has_duquant_rotation_blocks. Dense "duquant_rotation" above kept
             # for backward compat with old packs / non-fast runtimes.
             "duquant_rotation_blocks": r_in_blocks.to(save_dtype).cpu().contiguous(),

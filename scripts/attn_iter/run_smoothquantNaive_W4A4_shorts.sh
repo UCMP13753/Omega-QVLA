@@ -2,7 +2,7 @@
 # SmoothQuant-naive W4A4 (paper-style): SQ + RTN, NO SVD (rank=0), NO rotation,
 # NO GPTQ, NO per-step. block_size=0 (per-row weight scale, no group).
 set -uo pipefail
-REPO=/work/mingze/aspq
+REPO="${QUANTVLA_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 SCR="$REPO/scripts/attn_iter"
 LOG="$REPO/logs/smoothquantNaive_W4A4"
 mkdir -p "$LOG"

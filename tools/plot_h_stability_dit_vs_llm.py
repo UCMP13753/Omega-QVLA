@@ -62,8 +62,8 @@ def relative_h_error(X_full: torch.Tensor, k_values: list[int], n_boot: int = 32
 
 
 def main():
-    src = Path("/work/mingze/aspq/experiment_results/svd_diagnostics_gr00t/xw_dump_object_cal_perstep2.pt")
-    out_dir = Path("/work/mingze/aspq/experiment_results/visualization_for_paper")
+    src = Path("experiment_results/svd_diagnostics_gr00t/xw_dump_object_cal_perstep2.pt")
+    out_dir = Path("experiment_results/visualization_for_paper")
     out_dir.mkdir(parents=True, exist_ok=True)
     cal = torch.load(src, weights_only=False)
 

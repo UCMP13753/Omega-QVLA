@@ -3,7 +3,7 @@
 # Build 3 short-suite packs in parallel (GPUs 0-2), then eval all 3 in parallel
 # on GPUs 0-7 packed with distinct PORT_BASE.
 set -uo pipefail
-REPO=/work/mingze/aspq
+REPO="${QUANTVLA_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 SCR="$REPO/scripts/attn_iter"
 LOG="$REPO/logs/svdqNaive_W4A8_b0"
 mkdir -p "$LOG"

@@ -5,12 +5,12 @@ Same metrics, same plot layout, but targets pi0.5 paligemma (LLM) + gemma_expert
 
 Run under openpi venv:
 
-  CUDA_VISIBLE_DEVICES=7 LIBERO_CONFIG_PATH=/home/mingze/.libero \\
-  /work/mingze/openpi/.venv/bin/python -u -m tools.diagnose_svd_vs_svdh_quanterr_pi05 \\
-      --checkpoint /work/mingze/models/VLA_ckpt/pi05_libero_pytorch \\
-      --obs-path /work/mingze/aspq/duquant_act_stats/pi05_libero_object_obs.pt \\
+  CUDA_VISIBLE_DEVICES=7 LIBERO_CONFIG_PATH=$LIBERO_CONFIG_PATH \\
+  $OPENPI_ROOT/.venv/bin/python -u -m tools.diagnose_svd_vs_svdh_quanterr_pi05 \\
+      --checkpoint $CHECKPOINTS_ROOT/pi05_libero_pytorch \\
+      --obs-path duquant_act_stats/pi05_libero_object_obs.pt \\
       --num-samples 4 --block-size 64 \\
-      --output-dir /work/mingze/aspq/experiment_results/visualization_for_paper
+      --output-dir experiment_results/visualization_for_paper
 """
 from __future__ import annotations
 

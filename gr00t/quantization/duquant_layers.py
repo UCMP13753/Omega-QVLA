@@ -22,7 +22,6 @@ from .duquant_preprocess import (
     apply_input_transform,
     apply_output_restore,
     apply_bias_row_rot,
-    compute_mse_scales,
     fake_quantize_sym,
     load_pack,
     pack_weight,
@@ -33,7 +32,6 @@ from .duquant_preprocess import (
 )
 
 
-_ASPQ_CACHE: Dict[str, Any] = {}
 _ACT_STATS_CACHE: Dict[str, Dict[str, Any]] = {}
 
 
@@ -97,12 +95,6 @@ class DuQuantConfig:
     pack_dir: Optional[str] = None
     row_rot_mode: Optional[str] = None
     block_out_size: Optional[int] = None
-    aspq_enabled: Optional[bool] = None
-    aspq_path: Optional[str] = None
-    aspq_topk: Optional[int] = None
-    aspq_min_eig: Optional[float] = None
-    aspq_min_eig_relative: Optional[float] = None
-    aspq_missing: Optional[str] = None
     # A4-aware LLM DuQuant extensions (W4A4 experiments).
     # All default to current behavior so existing W4A8 packs stay byte-identical.
     perm_score: Optional[str] = None         # weight | act | act_weight
@@ -132,23 +124,6 @@ class DuQuantConfig:
             self.row_rot_mode = os.environ.get("GR00T_DUQUANT_ROW_ROT", "restore")
         if self.block_out_size is None:
             self.block_out_size = int(os.environ.get("GR00T_DUQUANT_BLOCK_OUT", os.environ.get("GR00T_DUQUANT_BLOCK", 16)))
-        if self.aspq_enabled is None:
-            self.aspq_enabled = os.environ.get("GR00T_DUQUANT_ASPQ", "0") not in ("0", "false", "False")
-        if self.aspq_path is None:
-            self.aspq_path = (
-                os.environ.get("GR00T_DUQUANT_ASPQ_PATH")
-                or os.environ.get("GR00T_DUQUANT_ASPQ_DIR")
-            )
-        if self.aspq_topk is None:
-            self.aspq_topk = int(os.environ.get("GR00T_DUQUANT_ASPQ_TOPK", 0))
-        if self.aspq_min_eig is None:
-            self.aspq_min_eig = float(os.environ.get("GR00T_DUQUANT_ASPQ_MIN_EIG", 1e-12))
-        if self.aspq_min_eig_relative is None:
-            self.aspq_min_eig_relative = float(os.environ.get("GR00T_DUQUANT_ASPQ_MIN_EIG_REL", 0.0))
-        if self.aspq_missing is None:
-            self.aspq_missing = os.environ.get("GR00T_DUQUANT_ASPQ_MISSING", "error").lower()
-        if self.aspq_enabled and not self.aspq_path:
-            raise ValueError("GR00T_DUQUANT_ASPQ=1 requires GR00T_DUQUANT_ASPQ_PATH or GR00T_DUQUANT_ASPQ_DIR")
         # A4-aware extensions
         if self.perm_score is None:
             self.perm_score = os.environ.get("GR00T_DUQUANT_PERM_SCORE", "weight").lower()
@@ -164,128 +139,6 @@ class DuQuantConfig:
             raise ValueError(f"GR00T_DUQUANT_ROT_MODE must be svd|hadamard|svd_hadamard, got {self.rot_mode!r}")
         if self.act_scale_mode not in ("percentile", "mse"):
             raise ValueError(f"GR00T_DUQUANT_ACT_SCALE_MODE must be percentile|mse, got {self.act_scale_mode!r}")
-
-
-def _torch_load(path: Path) -> Any:
-    try:
-        return torch.load(path, map_location="cpu", weights_only=False)
-    except TypeError:
-        return torch.load(path, map_location="cpu")
-
-
-def _load_aspq_container(path: Path) -> Any:
-    cache_key = str(path.resolve())
-    if cache_key in _ASPQ_CACHE:
-        return _ASPQ_CACHE[cache_key]
-    if path.suffix == ".pt" or path.suffix == ".pth":
-        value = _torch_load(path)
-    elif path.suffix == ".npz":
-        with np.load(path, allow_pickle=False) as f:  # type: ignore[name-defined]
-            value = {key: f[key] for key in f.files}
-    else:
-        raise ValueError(f"Unsupported ASPQ metric file: {path}")
-    _ASPQ_CACHE[cache_key] = value
-    return value
-
-
-def _load_aspq_record(layer_name: str, aspq_path: str) -> Optional[Any]:
-    path = Path(aspq_path)
-    if path.is_dir():
-        safe = sanitize_name(layer_name)
-        for suffix in (".pt", ".pth", ".npz"):
-            candidate = path / f"{safe}{suffix}"
-            if candidate.exists():
-                return _load_aspq_container(candidate)
-        return None
-
-    container = _load_aspq_container(path)
-    if not isinstance(container, dict):
-        return container
-    if any(key in container for key in ("M", "U", "eigvecs", "eigenvectors")):
-        return container
-    for key in (layer_name, sanitize_name(layer_name)):
-        if key in container:
-            return container[key]
-    return None
-
-
-def _record_get(record: Any, keys: Tuple[str, ...]) -> Optional[Any]:
-    if isinstance(record, dict):
-        for key in keys:
-            if key in record:
-                return record[key]
-    return None
-
-
-def _to_tensor(value: Any) -> torch.Tensor:
-    if isinstance(value, torch.Tensor):
-        return value.detach().to(dtype=torch.float32, device="cpu")
-    return torch.as_tensor(value, dtype=torch.float32)
-
-
-def _aspq_basis_from_record(
-    record: Any,
-    *,
-    out_features: int,
-    topk: int,
-    min_eig: float,
-    min_eig_relative: float = 0.0,
-) -> Optional[Tuple[torch.Tensor, torch.Tensor]]:
-    """Return U, eigvals with U shaped [out_features, k].
-
-    Filtering: keep eigvals > max(min_eig, min_eig_relative * eigvals.max()).
-    Set min_eig_relative > 0 to drop the noise tail in a layer-adaptive way
-    (recommended for low-bit ASPQ where the noise tail directions hurt more
-    than they help).
-    """
-    if record is None:
-        return None
-
-    U_value = _record_get(record, ("U", "eigvecs", "eigenvectors", "u"))
-    eig_value = _record_get(record, ("eigvals", "eigenvalues", "lambda", "lambdas", "Lambda", "S"))
-    M_value = _record_get(record, ("M", "metric", "action_metric"))
-
-    if U_value is None and M_value is None and isinstance(record, torch.Tensor):
-        M_value = record
-
-    if U_value is not None and eig_value is not None:
-        U = _to_tensor(U_value)
-        eigvals = _to_tensor(eig_value).flatten()
-        if U.ndim != 2:
-            raise ValueError(f"ASPQ U must be rank-2, got shape {tuple(U.shape)}")
-        if U.shape[0] != out_features and U.shape[1] == out_features:
-            U = U.t().contiguous()
-        if U.shape[0] != out_features:
-            raise ValueError(f"ASPQ U has incompatible shape {tuple(U.shape)} for out_features={out_features}")
-        if eigvals.numel() != U.shape[1]:
-            raise ValueError(f"ASPQ eigvals length {eigvals.numel()} does not match U columns {U.shape[1]}")
-    elif M_value is not None:
-        M = _to_tensor(M_value)
-        if M.shape != (out_features, out_features):
-            raise ValueError(f"ASPQ M has shape {tuple(M.shape)}, expected {(out_features, out_features)}")
-        M = 0.5 * (M + M.t())
-        eigvals, U = torch.linalg.eigh(M)
-    else:
-        raise ValueError("ASPQ metric record must contain either M or both U and eigvals")
-
-    order = torch.argsort(eigvals, descending=True)
-    eigvals = eigvals[order]
-    U = U[:, order]
-    finite_mask = torch.isfinite(eigvals)
-    if finite_mask.any() and float(min_eig_relative) > 0.0:
-        eig_max = float(eigvals[finite_mask].max().item())
-        threshold = max(float(min_eig), float(min_eig_relative) * eig_max)
-    else:
-        threshold = float(min_eig)
-    keep = finite_mask & (eigvals > threshold)
-    eigvals = eigvals[keep]
-    U = U[:, keep]
-    if topk and topk > 0:
-        eigvals = eigvals[:topk]
-        U = U[:, :topk]
-    if eigvals.numel() == 0:
-        return None
-    return U.contiguous(), eigvals.contiguous()
 
 
 def _parse_per_layer_wbits(env_val: Optional[str]) -> Dict[str, int]:
@@ -513,38 +366,6 @@ class DuQuantLinear(nn.Module):
             self._layer_stats_every = int(os.environ.get("GR00T_DEBUG_LAYER_STATS_EVERY", "200"))
         except ValueError:
             self._layer_stats_every = 200
-        self._aspq_enabled = bool(cfg.aspq_enabled)
-        self._aspq_available = False
-        if self._aspq_enabled:
-            basis = None
-            try:
-                record = _load_aspq_record(self.name, cfg.aspq_path or "")
-                basis = _aspq_basis_from_record(
-                    record,
-                    out_features=self.out_features,
-                    topk=int(cfg.aspq_topk or 0),
-                    min_eig=float(cfg.aspq_min_eig or 0.0),
-                )
-            except Exception as exc:
-                if cfg.aspq_missing == "error":
-                    raise
-                if self._debug_enabled:
-                    import logging
-                    logging.warning(f"[GR00T-DUQUANT][ASPQ] {self.name}: failed to load ASPQ metric: {exc}")
-            if basis is None:
-                if cfg.aspq_missing == "error":
-                    raise FileNotFoundError(
-                        f"No usable ASPQ metric found for layer '{self.name}' in {cfg.aspq_path}"
-                    )
-                if self._debug_enabled:
-                    import logging
-                    logging.warning(f"[GR00T-DUQUANT][ASPQ] {self.name}: metric missing; using baseline quantization")
-            else:
-                U, eigvals = basis
-                self.register_buffer("_aspq_U_orig", U, persistent=False)
-                self.register_buffer("_aspq_eigvals", eigvals, persistent=False)
-                self._aspq_available = True
-
     def _get_R_in_cache(self) -> Dict[int, torch.Tensor]:
         """Get R_in rotation matrices on the correct device."""
         if not hasattr(self, '_R_in_cache_dict'):
@@ -561,49 +382,10 @@ class DuQuantLinear(nn.Module):
             self._R_out_cache_dict[b] = getattr(self, f"_R_out_{b}")
         return self._R_out_cache_dict
 
-    def _aspq_basis_for_weight(self, W_t: torch.Tensor, apply_row_rot: bool) -> Tuple[torch.Tensor, torch.Tensor]:
-        U = self._aspq_U_orig.to(dtype=W_t.dtype, device=W_t.device)
-        eigvals = self._aspq_eigvals.to(dtype=W_t.dtype, device=W_t.device)
-
-        R_out_cache = self._get_R_out_cache()
-        if apply_row_rot and R_out_cache:
-            U = U.clone()
-            out_features = U.shape[0]
-            n_row_blocks = (out_features + self._block_out_size - 1) // self._block_out_size
-            for b in range(n_row_blocks):
-                if b not in R_out_cache:
-                    continue
-                rs = b * self._block_out_size
-                re = min((b + 1) * self._block_out_size, out_features)
-                Rb = R_out_cache[b][: (re - rs), : (re - rs)].to(dtype=U.dtype, device=U.device)
-                U[rs:re, :] = Rb @ U[rs:re, :]
-        return U, eigvals
-
     def _quantize_weight(self, W_t: torch.Tensor, scales: torch.Tensor, apply_row_rot: bool, *, label: str) -> torch.Tensor:
         if self.weight_bits <= 0:
             return W_t
-        if not (self._aspq_enabled and self._aspq_available):
-            return fake_quantize_sym(W_t, scales[:, None], self.weight_bits, label=label)
-
-        U, eigvals = self._aspq_basis_for_weight(W_t, apply_row_rot=apply_row_rot)
-        if U.numel() == 0:
-            return fake_quantize_sym(W_t, scales[:, None], self.weight_bits, label=label)
-
-        baseline_q = fake_quantize_sym(W_t, scales[:, None], self.weight_bits, label=f"{label}_baseline")
-        W_action = U.t() @ W_t
-        baseline_action = U.t() @ baseline_q
-
-        row_weights = torch.sqrt(torch.clamp(eigvals, min=float(self.cfg.aspq_min_eig or 1e-12)))
-        W_weighted = W_action * row_weights[:, None]
-        action_scales = compute_mse_scales(W_weighted, self.weight_bits)
-        action_q = fake_quantize_sym(
-            W_weighted,
-            action_scales[:, None],
-            self.weight_bits,
-            label=f"{label}_aspq_action",
-        ) / row_weights[:, None].clamp_min(1e-12)
-
-        return baseline_q + U @ (action_q - baseline_action)
+        return fake_quantize_sym(W_t, scales[:, None], self.weight_bits, label=label)
 
     @property
     def weight(self) -> torch.Tensor:
@@ -617,17 +399,7 @@ class DuQuantLinear(nn.Module):
 
     def _maybe_update_weight_cache(self) -> None:
         apply_row = (self.cfg.row_rot_mode != "0")
-        if self._aspq_enabled:
-            key = (
-                str(self._weight.device),
-                self._weight.dtype,
-                int(self.weight_bits),
-                int(apply_row),
-                "aspq",
-                int(self._aspq_available),
-            )
-        else:
-            key = (str(self._weight.device), self._weight.dtype, int(self.weight_bits), int(apply_row))
+        key = (str(self._weight.device), self._weight.dtype, int(self.weight_bits), int(apply_row))
         if self._cached_weight_key == key:
             return
 
@@ -670,8 +442,7 @@ class DuQuantLinear(nn.Module):
             logging.info(
                 f"[GR00T-DUQUANT][CACHE] {self.name} device={self._weight.device} dtype={self._weight.dtype} "
                 f"Wbits={self.weight_bits} Abits={self.cfg.act_bits} block_in={self.cfg.block_size} "
-                f"permute={self.pack.perm is not None} row_rot={self.cfg.row_rot_mode} "
-                f"aspq={self._aspq_enabled and self._aspq_available}"
+                f"permute={self.pack.perm is not None} row_rot={self.cfg.row_rot_mode}"
             )
             if self._weight_quantized_cached:
                 logging.info(f"[GR00T-DUQUANT][CACHE] {self.name} pre-quantized weights cached")
@@ -916,8 +687,7 @@ class DuQuantLinear(nn.Module):
                     print(
                         f"[LAYER] call#{_cnt} {self.name} "
                         f"xmax={x_max:.3f} ymax={y_amax:.3f} ynorm={y_norm:.2f} "
-                        f"nan={nan_cnt} inf={inf_cnt} clip_rate@p99.9={clip_rate:.3e} "
-                        f"aspq={int(getattr(self, '_aspq_available', False))}",
+                        f"nan={nan_cnt} inf={inf_cnt} clip_rate@p99.9={clip_rate:.3e}",
                         flush=True,
                     )
             except Exception as _e:
@@ -994,8 +764,7 @@ def wrap_duquant(
                 f"[GR00T-DUQUANT][DRYRUN] {name}: Linear({mod.in_features}->{mod.out_features}) "
                 f"W{wbits} A{cfg.act_bits} perm={cfg.enable_permute} "
                 f"block_in={cfg.block_size} block_out={cfg.block_out_size} row_rot={cfg.row_rot_mode} "
-                f"perm_score={cfg.perm_score} rot_mode={cfg.rot_mode} act_scale_mode={cfg.act_scale_mode} "
-                f"aspq={cfg.aspq_enabled}"
+                f"perm_score={cfg.perm_score} rot_mode={cfg.rot_mode} act_scale_mode={cfg.act_scale_mode}"
             )
             print(msg)
             listed += 1
@@ -1010,8 +779,7 @@ def wrap_duquant(
             f"W{wbits} A{cfg.act_bits} perm={cfg.enable_permute} block_in={actual_block_in} "
             f"block_out={actual_block_out} row_rot={cfg.row_rot_mode} "
             f"perm_score={cfg.perm_score}(stats={int(dq._act_stats_available)}) "
-            f"rot_mode={cfg.rot_mode} act_scale_mode={cfg.act_scale_mode} "
-            f"aspq={dq._aspq_enabled and dq._aspq_available}"
+            f"rot_mode={cfg.rot_mode} act_scale_mode={cfg.act_scale_mode}"
         )
         replaced += 1
     if dry_run:

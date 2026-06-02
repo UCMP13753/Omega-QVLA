@@ -1,7 +1,7 @@
 #!/bin/bash
 # SVDQ-naive W4A4 (block_size=0, per-row only) — shorts-only.
 set -uo pipefail
-REPO=/work/mingze/aspq
+REPO="${QUANTVLA_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 SCR="$REPO/scripts/attn_iter"
 LOG="$REPO/logs/svdqNaive_W4A4"
 mkdir -p "$LOG"

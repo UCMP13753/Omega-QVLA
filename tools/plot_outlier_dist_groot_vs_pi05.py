@@ -19,14 +19,14 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 
 
-GR00T_STATS = "/work/mingze/aspq/duquant_act_stats/object_q999.pt"
+GR00T_STATS = "duquant_act_stats/object_q999.pt"
 PI05_STATS = {
-    "object": "/work/mingze/aspq/duquant_act_stats/pi05_libero_object_q999.pt",
-    "spatial": "/work/mingze/aspq/duquant_act_stats/pi05_libero_spatial_q999.pt",
-    "goal":    "/work/mingze/aspq/duquant_act_stats/pi05_libero_goal_q999.pt",
-    "long":    "/work/mingze/aspq/duquant_act_stats/pi05_libero_10_q999.pt",
+    "object": "duquant_act_stats/pi05_libero_object_q999.pt",
+    "spatial": "duquant_act_stats/pi05_libero_spatial_q999.pt",
+    "goal":    "duquant_act_stats/pi05_libero_goal_q999.pt",
+    "long":    "duquant_act_stats/pi05_libero_10_q999.pt",
 }
-OUT_DIR = Path("/work/mingze/aspq/experiment_results/visualization_for_paper")
+OUT_DIR = Path("experiment_results/visualization_for_paper")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 

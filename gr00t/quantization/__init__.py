@@ -1,12 +1,11 @@
-"""GR00T DuQuant W4A8 fake quantization module."""
+"""Omega-QVLA quantization layers: DuQuant rotation, GPTQ pack loader, RTN."""
 
-from .aspq_gptq import (
-    AspqGptqConfig,
-    AspqGptqLinear,
-    AspqGptqRecord,
-    enable_aspq_gptq_if_configured,
-    quantize_U_int8,
-    solve_aspq_gptq_weight,
+from .gptq_layers import (
+    GptqConfig,
+    GptqLinear,
+    enable_gptq_if_configured,
+    gptq_quantize_weight,
+    wrap_gptq,
 )
 from .duquant_layers import (
     DuQuantConfig,
@@ -16,14 +15,15 @@ from .duquant_layers import (
     wrap_duquant,
 )
 from .rtn_layers import RTNLinear, enable_rtn_if_configured
+from .quant import enable_quant_if_configured
 
 __all__ = [
-    "AspqGptqConfig",
-    "AspqGptqLinear",
-    "AspqGptqRecord",
-    "enable_aspq_gptq_if_configured",
-    "quantize_U_int8",
-    "solve_aspq_gptq_weight",
+    "enable_quant_if_configured",
+    "GptqConfig",
+    "GptqLinear",
+    "enable_gptq_if_configured",
+    "gptq_quantize_weight",
+    "wrap_gptq",
     "DuQuantConfig",
     "DuQuantLinear",
     "enable_duquant_if_configured",

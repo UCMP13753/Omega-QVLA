@@ -26,7 +26,7 @@ Storage cost vs the existing A2-lite+GPTQ-only pack: +(out+in)*16 FP16 ~ 1.3% of
 
 Usage:
   CUDA_VISIBLE_DEVICES=0 python tools/build_dit_a2lite_svd_gptq_perstep.py \\
-    --checkpoint /work/mingze/models/VLA_ckpt/gr00t-n1.5-libero-object-posttrain \\
+    --checkpoint $CHECKPOINTS_ROOT/gr00t-n1.5-libero-object-posttrain \\
     --task-suite-name libero_object \\
     --output-path results/multisuite_packs/object_DiT_a2lite_svd_gptq_perstep_cal2/quantized.pt \\
     --num-samples 2 --gptq-damp-percent 0.05
@@ -46,10 +46,10 @@ sys.path.insert(0, str(REPO_ROOT))
 from tools.analyze_layerwise_quant_drift import (  # noqa: E402
     ensure_libero_runtime, get_named_module, load_libero_samples, load_policy, seed_everything,
 )
-from tools.aspq_jacobian_sanity import normalized_input_no_inference  # noqa: E402
+from tools.analyze_layerwise_quant_drift import normalized_input_no_inference  # noqa: E402
 from gr00t.experiment.data_config import load_data_config  # noqa: E402
 from gr00t.quantization.dit_step_context import get_current_dit_step  # noqa: E402
-from gr00t.quantization.aspq_gptq import gptq_quantize_weight  # noqa: E402
+from gr00t.quantization.gptq_layers import gptq_quantize_weight  # noqa: E402
 from gr00t.quantization.duquant_preprocess import qmax, pack_weight  # noqa: E402
 
 DIT_PATTERN = re.compile(

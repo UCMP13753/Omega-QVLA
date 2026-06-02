@@ -3,14 +3,14 @@
 
 Existing pack (from build_dit_a2lite_gptq_full.sh):
   baseline_q, duquant_rotation, duquant_rotation_out, ...
-  → at runtime, AspqGptqLinear applies x' = x @ duquant_rotation; uses a
+  → at runtime, GptqLinear applies x' = x @ duquant_rotation; uses a
     single PercentileCalibrator-derived _act_scale across all 8 DiT steps.
 
 This script adds the missing piece:
   act_scale_table[t, j] = q999(|x_t @ duquant_rotation|, dim=0) / qmax(a_bits)
   shape [num_steps, in_features], baked into the pack.
 
-At runtime, AspqGptqLinear automatically picks _act_scale_table[t] when the
+At runtime, GptqLinear automatically picks _act_scale_table[t] when the
 field is present and get_current_dit_step() is set — no runtime change needed.
 
 The script:
@@ -25,7 +25,7 @@ The script:
 
 Usage:
   python tools/build_dit_a2lite_perstep_act.py \
-      --checkpoint /work/mingze/models/VLA_ckpt/gr00t-n1.5-libero-object-posttrain \
+      --checkpoint $CHECKPOINTS_ROOT/gr00t-n1.5-libero-object-posttrain \
       --input-pack results/multisuite_packs/object_DiT_a2lite_GPTQ_full/quantized.pt \
       --output-pack results/multisuite_packs/object_DiT_a2lite_GPTQ_perstep/quantized.pt \
       --task-suite-name libero_object \
@@ -54,7 +54,7 @@ from tools.analyze_layerwise_quant_drift import (  # noqa: E402
     load_policy,
     seed_everything,
 )
-from tools.aspq_jacobian_sanity import normalized_input_no_inference  # noqa: E402
+from tools.analyze_layerwise_quant_drift import normalized_input_no_inference  # noqa: E402
 from gr00t.experiment.data_config import load_data_config  # noqa: E402
 from gr00t.quantization.dit_step_context import get_current_dit_step  # noqa: E402
 from gr00t.quantization.duquant_preprocess import qmax  # noqa: E402

@@ -30,7 +30,7 @@ unchanged; non-DiT records are also preserved untouched.
 Usage:
   python tools/build_dit_svdquant_weights.py \
       --checkpoint /.../gr00t-n1.5-libero-goal-posttrain \
-      --base-pack results/multisuite_packs/goal_aspq_dit_tac_fp_q990_w3a8/quantized.pt \
+      --base-pack results/multisuite_packs/goal_dit_gptq_w4a8/quantized.pt \
       --output-path results/multisuite_packs/goal_R3_SVD_W4A8_DiT_r16_q999/quantized.pt \
       --w-bits 4 --a-bits 8 --svd-rank 16 \
       --act-percentile 99.9 \
@@ -63,11 +63,11 @@ from tools.analyze_layerwise_quant_drift import (  # noqa: E402
     load_policy,
     seed_everything,
 )
-from tools.aspq_jacobian_sanity import normalized_input_no_inference  # noqa: E402
+from tools.analyze_layerwise_quant_drift import normalized_input_no_inference  # noqa: E402
 from gr00t.experiment.data_config import load_data_config  # noqa: E402
 from gr00t.quantization.dit_step_context import get_current_dit_step  # noqa: E402
 from gr00t.quantization.duquant_layers import select_targets  # noqa: E402
-from gr00t.quantization.aspq_gptq import gptq_quantize_weight  # noqa: E402
+from gr00t.quantization.gptq_layers import gptq_quantize_weight  # noqa: E402
 from gr00t.quantization.duquant_preprocess import qmax  # noqa: E402
 
 DIT_PATTERN = re.compile(
@@ -173,7 +173,7 @@ def parse_args() -> argparse.Namespace:
         "--use-q-llm-teacher",
         default=None,
         help=(
-            "Path to an LLM-W4 ASPQ-GPTQ pack. When set, the LLM is wrapped "
+            "Path to an LLM-W4 GPTQ pack. When set, the LLM is wrapped "
             "with these quantized weights BEFORE the calibration forward pass, "
             "so DiT activation capture sees realistic Q-LLM input distribution "
             "instead of FP-LLM. This implements the bi-level calibration scheme "
@@ -261,7 +261,7 @@ def main() -> None:
     # capture sees the deployment-time noisy distribution. Implements the
     # iterative pipeline LLM-Q → DiT-Q-recalibrated (see HANDOFF.md P1).
     if args.use_q_llm_teacher:
-        from gr00t.quantization.aspq_gptq import wrap_aspq_gptq, AspqGptqConfig
+        from gr00t.quantization.gptq_layers import wrap_gptq, GptqConfig
 
         llm_include_regex = (
             r".*backbone\.eagle_model\.language_model\..*"
@@ -286,14 +286,14 @@ def main() -> None:
             f"from {args.use_q_llm_teacher}",
             flush=True,
         )
-        llm_cfg = AspqGptqConfig(
+        llm_cfg = GptqConfig(
             enabled=True,
             path=args.use_q_llm_teacher,
             weight_bits=4,
             act_bits=8,
             missing="fallback",
         )
-        wrap_aspq_gptq(policy.model, llm_layer_names, llm_cfg)
+        wrap_gptq(policy.model, llm_layer_names, llm_cfg)
         policy.model.eval()
         print(f"[SVDQ][BiLevel] LLM Q-wrap done; DiT inputs will be Q-LLM teacher", flush=True)
 

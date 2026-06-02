@@ -15,12 +15,12 @@ Then write a 3-panel figure:
   panel 3 (W4 per-row scale-spread bars): per-row max(|X·R|) / median(|X·R|)
                                           — drives quantization scale variance
 
-Run under custon_asr conda env (has LIBERO simulator + torch + matplotlib):
+Run under the omega_qvla conda env (has LIBERO simulator + torch + matplotlib):
 
-  CUDA_VISIBLE_DEVICES=0 LIBERO_CONFIG_PATH=/home/mingze/.libero \\
-  /work/mingze/miniconda3/envs/custon_asr/bin/python \\
+  CUDA_VISIBLE_DEVICES=0 LIBERO_CONFIG_PATH=$LIBERO_CONFIG_PATH \\
+  python \\
     -m tools.diagnose_svd_vs_svdh_quickcap \\
-    --checkpoint /work/mingze/models/VLA_ckpt/gr00t-n1.5-libero-object-posttrain \\
+    --checkpoint $CHECKPOINTS_ROOT/gr00t-n1.5-libero-object-posttrain \\
     --task-suite-name libero_object \\
     --num-samples 4 --block-size 64 \\
     --output-dir experiment_results/visualization_for_paper
@@ -43,7 +43,7 @@ from tools.analyze_layerwise_quant_drift import (  # noqa: E402
     ensure_libero_runtime, load_libero_samples, load_policy, seed_everything,
     get_named_module,
 )
-from tools.aspq_jacobian_sanity import normalized_input_no_inference  # noqa: E402
+from tools.analyze_layerwise_quant_drift import normalized_input_no_inference  # noqa: E402
 from gr00t.experiment.data_config import load_data_config  # noqa: E402
 
 

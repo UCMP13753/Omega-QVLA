@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """Build an E2-no-perstep variant: take an existing E2 pack
-(LLM aspq_gptq + DiT a2lite RTN with per-step act_scale_table), and collapse
+(LLM gptq + DiT a2lite RTN with per-step act_scale_table), and collapse
 each DiT layer's act_scale_table from shape [8, in_features] to a single-bucket
 equivalent (mean over the 8 steps, then expanded back to [8, in_features]).
 

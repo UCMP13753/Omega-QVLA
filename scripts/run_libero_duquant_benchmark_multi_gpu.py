@@ -11,13 +11,13 @@ import time
 from pathlib import Path
 
 
-CONDA_ROOT = Path(os.environ.get("CONDA_ROOT", "/work/mingze/miniconda3")).resolve()
-GROOT_CONDA_ENV = os.environ.get("GROOT_CONDA_ENV", os.environ.get("QUANTVLA_CONDA_ENV", "groot_test"))
-LIBERO_CONDA_ENV = os.environ.get("LIBERO_CONDA_ENV", "libero_test")
+CONDA_ROOT = Path(os.environ.get("CONDA_ROOT", os.path.join(os.path.expanduser("~"), "miniconda3"))).resolve()
+GROOT_CONDA_ENV = os.environ.get("GROOT_CONDA_ENV", os.environ.get("QUANTVLA_CONDA_ENV", "omega_qvla"))
+LIBERO_CONDA_ENV = os.environ.get("LIBERO_CONDA_ENV", GROOT_CONDA_ENV)
 GROOT_PY = os.environ.get("GROOT_PY", str(CONDA_ROOT / "envs" / GROOT_CONDA_ENV / "bin" / "python"))
 LIBERO_PY = os.environ.get("LIBERO_PY", str(CONDA_ROOT / "envs" / LIBERO_CONDA_ENV / "bin" / "python"))
-QUANTVLA_ROOT = Path(os.environ.get("QUANTVLA_ROOT", "/work/mingze/QuantVLA")).resolve()
-LIBERO_ROOT = Path(os.environ.get("LIBERO_ROOT", "/work/mingze/LIBERO")).resolve()
+QUANTVLA_ROOT = Path(os.environ.get("QUANTVLA_ROOT", str(Path(__file__).resolve().parents[1]))).resolve()
+LIBERO_ROOT = Path(os.environ.get("LIBERO_ROOT", os.path.join(os.path.expanduser("~"), "LIBERO"))).resolve()
 
 
 def env_int(name: str, default: int) -> int:
@@ -66,7 +66,7 @@ def suite_defaults(task_suite: str) -> tuple[str, str, int]:
         )
     if task_suite == "libero_10":
         return (
-            "/work/mingze/checkpoints/gr00t-n1.5-libero-long-posttrain",
+            "youliangtan/gr00t-n1.5-libero-long-posttrain",
             "examples.Libero.custom_data_config:LiberoDataConfig",
             10,
         )
@@ -106,14 +106,14 @@ def make_base_env() -> dict[str, str]:
         pythonpath_entries.append(env["PYTHONPATH"])
     env["PYTHONPATH"] = ":".join(pythonpath_entries)
 
-    cache_root = env.get("QUANTVLA_CACHE_ROOT", "/work/mingze/.cache/quantvla")
+    cache_root = env.get("QUANTVLA_CACHE_ROOT", os.path.join(os.path.expanduser("~"), ".cache", "omega_qvla"))
     env["QUANTVLA_CACHE_ROOT"] = cache_root
     env["HF_HOME"] = f"{cache_root}/huggingface"
     env["HUGGINGFACE_HUB_CACHE"] = f"{cache_root}/huggingface/hub"
     env["TRANSFORMERS_CACHE"] = f"{cache_root}/huggingface/transformers"
     env["TORCH_HOME"] = f"{cache_root}/torch"
     env["XDG_CACHE_HOME"] = f"{cache_root}/xdg"
-    env["LIBERO_CONFIG_PATH"] = env.get("LIBERO_CONFIG_PATH", "/work/mingze/.libero")
+    env["LIBERO_CONFIG_PATH"] = env.get("LIBERO_CONFIG_PATH", os.path.join(os.path.expanduser("~"), ".libero"))
     env["LIBERO_ROOT"] = str(LIBERO_ROOT)
     env["MPLCONFIGDIR"] = f"{cache_root}/matplotlib"
     env["GR00T_CPU_THREADS"] = env.get("GR00T_CPU_THREADS", "4")
@@ -145,18 +145,18 @@ def configure_duquant_env(env: dict[str, str], wbits: int, abits: int, packdir: 
     env["TORCHINDUCTOR_DISABLE_CUDAGRAPHS"] = "1"
     # Skip DuQuant-specific env injection when method does not need it.
     # METHOD=fp16: pure FP16, no quant at all.
-    # METHOD=aspq_gptq / pure_gptq: ASPQ-GPTQ codepath (policy.py skips DuQuant when
-    # aspq is applied, so DuQuant env vars would just sit unused — but if METHOD=fp16
-    # they would be picked up by enable_duquant_if_configured and wrap the model).
+    # METHOD=gptq / pure_gptq: GPTQ pack codepath. When not hybrid, strip any
+    # inherited DuQuant env so the model loads cleanly; when hybrid, the caller's
+    # DuQuant env (e.g. LLM side) is kept and composes with the GPTQ pack.
     method = env.get("METHOD", "").lower()
     hybrid = env.get("GR00T_HYBRID_QUANT", "0") not in ("0", "false", "False")
-    if method in ("fp16", "aspq_gptq", "pure_gptq", "rtn") and not hybrid:
+    if method in ("fp16", "gptq", "pure_gptq", "rtn") and not hybrid:
         # Strip any inherited DuQuant env so model loads cleanly.
         for k in list(env.keys()):
             if k.startswith("GR00T_DUQUANT_") and k != "GR00T_DUQUANT_PACKDIR":
                 env.pop(k, None)
         return
-    if method in ("fp16", "aspq_gptq", "pure_gptq") and hybrid:
+    if method in ("fp16", "gptq", "pure_gptq") and hybrid:
         # HYBRID mode: keep caller's DuQuant env vars; only inject ABITS from $abits
         # so LLM bit-width follows the user-requested precision.
         env["GR00T_DUQUANT_ABITS"] = str(abits)
@@ -252,7 +252,7 @@ def run_shard(
         server_proc = subprocess.Popen(
             [
                 inference_py,
-                "-u",  # unbuffered stdout/stderr so wrap_aspq_gptq prints show up in server_log
+                "-u",  # unbuffered stdout/stderr so wrap_gptq prints show up in server_log
                 inference_script,
                 "--model_path",
                 model_path,

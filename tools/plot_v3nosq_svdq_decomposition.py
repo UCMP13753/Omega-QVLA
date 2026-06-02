@@ -125,7 +125,7 @@ def build_panel(ax, data, title, ylim=None, hatch_unavailable=True):
 
 
 def main():
-    out_dir = Path("/work/mingze/aspq/experiment_results/visualization_for_paper")
+    out_dir = Path("experiment_results/visualization_for_paper")
     out_dir.mkdir(parents=True, exist_ok=True)
 
     mpl.rcParams["font.size"] = 10

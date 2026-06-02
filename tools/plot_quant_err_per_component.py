@@ -27,12 +27,12 @@ import matplotlib as mpl
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 from gr00t.quantization.duquant_preprocess import compute_duquant_rotation_only, compute_mse_scales
-from gr00t.quantization.aspq_gptq import gptq_quantize_weight
+from gr00t.quantization.gptq_layers import gptq_quantize_weight
 
 
-SRC_GR00T = "/work/mingze/aspq/experiment_results/svd_diagnostics_gr00t/xw_dump_object_cal_perstep2.pt"
-SRC_PI05  = "/work/mingze/aspq/experiment_results/svd_diagnostics_gr00t/xw_dump_pi05_object_n4.pt"
-OUT_DIR = Path("/work/mingze/aspq/experiment_results/visualization_for_paper")
+SRC_GR00T = "experiment_results/svd_diagnostics_gr00t/xw_dump_object_cal_perstep2.pt"
+SRC_PI05  = "experiment_results/svd_diagnostics_gr00t/xw_dump_pi05_object_n4.pt"
+OUT_DIR = Path("experiment_results/visualization_for_paper")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 

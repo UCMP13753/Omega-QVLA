@@ -373,45 +373,14 @@ class Gr00tPolicy(BasePolicy):
         except Exception as e:
             print(f"[GR00T] Failed to patch attention for ATM support: {e}")
 
-        # Apply ASPQ-GPTQ or DuQuant quantization if configured via environment variables.
-        # This must be done BEFORE moving model to device.
-        # IMPORTANT: This is called AFTER action_head recreation to ensure DiT layers are quantized.
-        aspq_gptq_requested = os.environ.get("GR00T_ASPQ_GPTQ", "0") not in ("0", "false", "False")
-        aspq_gptq_applied = False
-        try:
-            from gr00t.quantization import enable_aspq_gptq_if_configured
+        # Apply GPTQ / RTN / DuQuant quantization if configured via environment
+        # variables. Must run BEFORE moving the model to device, and AFTER
+        # action_head recreation so DiT layers are wrapped. The unified entry
+        # dispatches + composes the three building blocks (see
+        # gr00t.quantization.quant.enable_quant_if_configured).
+        from gr00t.quantization import enable_quant_if_configured
 
-            aspq_gptq_applied = enable_aspq_gptq_if_configured(model)
-        except Exception as e:
-            if aspq_gptq_requested:
-                raise RuntimeError(f"ASPQ-GPTQ requested but failed to apply: {e}") from e
-            print(f"[GR00T] ASPQ-GPTQ not enabled or failed to apply: {e}")
-
-        # Hybrid mode: allow BOTH ASPQ-GPTQ (e.g., DiT layers) AND DuQuant
-        # (e.g., LLM layers) to wrap their respective non-overlapping INCLUDE
-        # scopes. Each wrapper checks isinstance(mod, nn.Linear) and skips
-        # already-replaced layers, so order doesn't matter as long as the
-        # INCLUDE regexes don't collide. Enable with GR00T_HYBRID_QUANT=1.
-        hybrid_quant = os.environ.get("GR00T_HYBRID_QUANT", "0") not in ("0", "false", "False")
-        try:
-            rtn_requested = any(k.startswith("GR00T_RTN") for k in os.environ)
-            if rtn_requested and not aspq_gptq_applied and not aspq_gptq_requested:
-                from gr00t.quantization import enable_rtn_if_configured
-                enable_rtn_if_configured(model)
-                print("[GR00T] RTN/SmoothQuant replacement applied")
-            elif hybrid_quant:
-                from gr00t.quantization import enable_duquant_if_configured
-                enable_duquant_if_configured(model)
-                print("[GR00T] HYBRID mode: DuQuant also applied to its INCLUDE scope")
-            elif aspq_gptq_applied:
-                print("[GR00T] ASPQ-GPTQ applied; skipping DuQuant replacement")
-            elif aspq_gptq_requested:
-                print("[GR00T] ASPQ-GPTQ was requested; skipping DuQuant fallback")
-            else:
-                from gr00t.quantization import enable_duquant_if_configured
-                enable_duquant_if_configured(model)
-        except Exception as e:
-            print(f"[GR00T] DuQuant not enabled or failed to apply: {e}")
+        enable_quant_if_configured(model)
 
         # Apply ATM scaling if configured (uses pre-loaded alpha JSON)
         try:

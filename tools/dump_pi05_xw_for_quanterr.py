@@ -6,10 +6,10 @@ layers {2, 8, 14} (3 layers per module × 4 kinds = ~24 entries). Captures one
 token-cap chunk per layer (pooled across denoising steps).
 
 Run with the openpi venv:
-  /work/mingze/openpi/.venv/bin/python tools/dump_pi05_xw_for_quanterr.py \\
-      --checkpoint /work/mingze/models/VLA_ckpt/pi05_libero_pytorch \\
-      --obs-path  /work/mingze/aspq/duquant_act_stats/pi05_libero_object_obs_n4.pt \\
-      --output    /work/mingze/aspq/experiment_results/svd_diagnostics_gr00t/xw_dump_pi05_object_n4.pt \\
+  $OPENPI_ROOT/.venv/bin/python tools/dump_pi05_xw_for_quanterr.py \\
+      --checkpoint $CHECKPOINTS_ROOT/pi05_libero_pytorch \\
+      --obs-path  duquant_act_stats/pi05_libero_object_obs_n4.pt \\
+      --output    experiment_results/svd_diagnostics_gr00t/xw_dump_pi05_object_n4.pt \\
       --max-samples 4 --token-cap 1024
 """
 from __future__ import annotations

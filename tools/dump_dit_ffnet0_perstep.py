@@ -7,10 +7,10 @@ plot_perstep_necessity.py can load it alongside the existing dump and append
 a new layer-kind ("ff_net_0" = MLP input, the missing piece for "does
 per-step also help MLP?").
 
-Run with the custon_asr env (which has LIBERO + gr00t):
-  CUDA_VISIBLE_DEVICES=0 LIBERO_CONFIG_PATH=/home/mingze/.libero \\
+Run with the omega_qvla env (which has LIBERO + gr00t):
+  CUDA_VISIBLE_DEVICES=0 LIBERO_CONFIG_PATH=$LIBERO_CONFIG_PATH \\
   python tools/dump_dit_ffnet0_perstep.py \\
-      --checkpoint /work/mingze/models/VLA_ckpt/gr00t-n1.5-libero-object-posttrain \\
+      --checkpoint $CHECKPOINTS_ROOT/gr00t-n1.5-libero-object-posttrain \\
       --task-suite-name libero_object \\
       --num-samples 49 \\
       --output-pt experiment_results/svd_diagnostics_gr00t/xw_dump_object_cal_perstep_ffnet0.pt

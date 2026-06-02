@@ -19,7 +19,7 @@ optimize:
 For each of 10 GR00T layers (5 LLM + 5 DiT), we compare:
   raw  (R = I)   |   SVD only (R = U_b)   |   SVD-Hadamard (R = U_b @ H_b)
 
-Run under custon_asr conda env. Same args as diagnose_svd_vs_svdh_quickcap.py.
+Run under the omega_qvla conda env. Same args as diagnose_svd_vs_svdh_quickcap.py.
 """
 from __future__ import annotations
 
@@ -39,7 +39,7 @@ from tools.analyze_layerwise_quant_drift import (  # noqa: E402
     ensure_libero_runtime, load_libero_samples, load_policy, seed_everything,
     get_named_module,
 )
-from tools.aspq_jacobian_sanity import normalized_input_no_inference  # noqa: E402
+from tools.analyze_layerwise_quant_drift import normalized_input_no_inference  # noqa: E402
 from gr00t.experiment.data_config import load_data_config  # noqa: E402
 
 

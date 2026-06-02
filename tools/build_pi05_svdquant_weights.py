@@ -9,15 +9,15 @@ per-step act_scale_table) but adapted to the pi0.5 PyTorch model:
                                                     sample_actions loop with
                                                     set_dit_quant_step(t))
 
-Output pack format matches AspqGptqLinear's runtime loader (format=dit_svdquant_v1
+Output pack format matches GptqLinear's runtime loader (format=dit_svdquant_v1
 per-layer record). No base pack needed; each layer's record stands alone.
 
 Requires the openpi venv (Python 3.11 with JAX + PyTorch + openpi). Driven by
 the obs pickle produced by tools/record_libero_obs_for_pi05.py.
 
 Usage:
-  /work/mingze/openpi/.venv/bin/python -m tools.build_pi05_svdquant_weights \\
-      --checkpoint /work/mingze/models/VLA_ckpt/pi05_libero_pytorch \\
+  $OPENPI_ROOT/.venv/bin/python -m tools.build_pi05_svdquant_weights \\
+      --checkpoint $CHECKPOINTS_ROOT/pi05_libero_pytorch \\
       --data-config pi05_libero \\
       --obs-path duquant_act_stats/pi05_libero_object_obs.pt \\
       --output results/multisuite_packs/pi05_object_SVDQ_custom_W4A4/quantized.pt \\
@@ -45,7 +45,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
 from gr00t.quantization.dit_step_context import get_current_dit_step  # noqa: E402
-from gr00t.quantization.aspq_gptq import gptq_quantize_weight  # noqa: E402
+from gr00t.quantization.gptq_layers import gptq_quantize_weight  # noqa: E402
 from gr00t.quantization.duquant_preprocess import qmax  # noqa: E402
 
 

@@ -32,22 +32,38 @@ import torch
 from tqdm import tqdm
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_CACHE_ROOT = Path(os.environ.get("QUANTVLA_CACHE_ROOT", "/ceph/workspace/xinyu/.cache/quantvla"))
+DEFAULT_CACHE_ROOT = Path(os.environ.get("QUANTVLA_CACHE_ROOT", str(Path.home() / ".cache" / "omega_qvla")))
 DEFAULT_CACHE_ROOT.mkdir(parents=True, exist_ok=True)
 os.environ.setdefault("HF_HOME", str(DEFAULT_CACHE_ROOT / "huggingface"))
 os.environ.setdefault("HUGGINGFACE_HUB_CACHE", str(DEFAULT_CACHE_ROOT / "huggingface" / "hub"))
 os.environ.setdefault("TRANSFORMERS_CACHE", str(DEFAULT_CACHE_ROOT / "huggingface" / "transformers"))
 os.environ.setdefault("HF_MODULES_CACHE", str(DEFAULT_CACHE_ROOT / "huggingface" / "modules"))
 os.environ.setdefault("TORCH_HOME", str(DEFAULT_CACHE_ROOT / "torch"))
-os.environ.setdefault("LIBERO_CONFIG_PATH", "/ceph/workspace/xinyu/.libero")
-os.environ.setdefault("LIBERO_ROOT", "/ceph/workspace/xinyu/LIBERO")
+os.environ.setdefault("LIBERO_CONFIG_PATH", str(Path.home() / ".libero"))
+os.environ.setdefault("LIBERO_ROOT", str(Path.home() / "LIBERO"))
 
 from gr00t.data.dataset import LeRobotSingleDataset
 from gr00t.data.embodiment_tags import EmbodimentTag
 from gr00t.experiment.data_config import load_data_config
-from gr00t.model.policy import Gr00tPolicy
+from gr00t.model.policy import Gr00tPolicy, unsqueeze_dict_values
 from gr00t.quantization.duquant_layers import DuQuantLinear, select_targets
 from gr00t.quantization.duquant_preprocess import fake_quantize_sym
+
+
+def normalized_input_no_inference(policy, sample_obs):
+    """Mimic policy.get_action's preprocessing without inference_mode.
+
+    Generic LIBERO calibration helper shared by the offline pack builders and
+    the SVD diagnostics. (Lives here because analyze_layerwise_quant_drift is
+    the common import hub for those tools.)
+    """
+    obs_copy = sample_obs.copy()
+    obs_copy = unsqueeze_dict_values(obs_copy)
+    for k, v in obs_copy.items():
+        if not isinstance(v, np.ndarray):
+            obs_copy[k] = np.array(v)
+    normalized_input = policy.apply_transforms(obs_copy)
+    return normalized_input
 
 
 DEFAULT_INCLUDE_REGEX = (
@@ -143,7 +159,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--dataset-path",
-        default="/ceph/workspace/xinyu/LIBERO/datasets/lerobot_libero_10",
+        default=str(Path(os.environ.get("LIBERO_ROOT", str(Path.home() / "LIBERO"))) / "datasets" / "lerobot_libero_10"),
         help="LeRobot-format dataset path.",
     )
     parser.add_argument(
@@ -345,9 +361,9 @@ def ensure_libero_runtime() -> None:
     extra = os.environ.get("QUANTVLA_EXTRA_SITE_DIRS", "")
     if extra:
         candidates.extend([path for path in extra.split(":") if path])
-    conda_root = os.environ.get("CONDA_ROOT", "/ceph/workspace/xinyu/miniconda3")
-    quant_env = os.environ.get("QUANTVLA_CONDA_ENV", "custon_asr")
-    libero_env = os.environ.get("LIBERO_CONDA_ENV", "custon_asr")
+    conda_root = os.environ.get("CONDA_ROOT", str(Path.home() / "miniconda3"))
+    quant_env = os.environ.get("QUANTVLA_CONDA_ENV", "omega_qvla")
+    libero_env = os.environ.get("LIBERO_CONDA_ENV", "omega_qvla")
     candidates.extend(
         [
             f"{conda_root}/envs/{quant_env}/lib/python3.10/site-packages",
@@ -600,16 +616,6 @@ def build_duquant_env(args: argparse.Namespace, layer_names: Sequence[str]) -> d
     }
     if args.packdir:
         env["GR00T_DUQUANT_PACKDIR"] = args.packdir
-    for key in (
-        "GR00T_DUQUANT_ASPQ",
-        "GR00T_DUQUANT_ASPQ_PATH",
-        "GR00T_DUQUANT_ASPQ_DIR",
-        "GR00T_DUQUANT_ASPQ_TOPK",
-        "GR00T_DUQUANT_ASPQ_MIN_EIG",
-        "GR00T_DUQUANT_ASPQ_MISSING",
-    ):
-        if key in os.environ:
-            env[key] = os.environ[key]
     return env
 
 

@@ -8,7 +8,7 @@
 # Build stage runs 4 suites in parallel on GPUs 0-3 (one suite per GPU).
 # Each suite does Step A (DiT-side) then Step B (LLM-side) sequentially.
 set -uo pipefail
-REPO=/work/mingze/aspq
+REPO="${QUANTVLA_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 SCR="$REPO/scripts/attn_iter"
 LOG="$REPO/logs/svdqNaive_W4A8"
 mkdir -p "$LOG"

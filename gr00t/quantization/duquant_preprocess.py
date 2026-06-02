@@ -320,7 +320,7 @@ def compute_duquant_rotation_only(
     """Extract DuQuant's per-block input rotation R (block-diagonal) and
     optional zigzag permutation, WITHOUT quantizing W. Used to compose
     DuQuant rotation as a preprocessing for other quantization methods
-    (e.g., ASPQ-GPTQ).
+    (e.g., GPTQ).
 
     rot_mode: 'svd' (default, original DuQuant), 'hadamard', or 'svd_hadamard'
     (A2-lite).  Hadamard variants require block_size to be a power of 2; the
