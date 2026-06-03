@@ -75,6 +75,10 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--act-percentile", type=float, default=99.9)
     p.add_argument("--save-dtype", choices=["float16", "float32"], default="float16")
     p.add_argument("--max-layers", type=int, default=0)
+    p.add_argument("--capture-prefix", action="store_true",
+                   help="Bucket prefix-pass activations (no denoising step) at t=0. "
+                        "Use for PaliGemma/LLM layers, which run once in the prefix and "
+                        "never inside the denoising loop. Leave off for Expert/DiT layers.")
     return p.parse_args()
 
 
@@ -188,7 +192,9 @@ def main():
                 return
             t = get_current_dit_step()
             if t is None:
-                return  # only collect inside denoising loop
+                if not args.capture_prefix:
+                    return  # Expert/DiT: only collect inside the denoising loop
+                t = 0  # PaliGemma/LLM prefix: single bucket at t=0
             x = x.detach().to(torch.float32).reshape(-1, x.shape[-1])
             if x.shape[0] > args.token_cap:
                 idx = torch.randperm(x.shape[0], device=x.device)[: args.token_cap]

@@ -13,6 +13,21 @@ Both sides are offline **GPTQ packs** (the rotation, the RTN-vs-GPTQ residual
 choice, and the per-step scale table are all baked into the pack at build time);
 the runtime loads them through `GptqLinear`.
 
+## Pretrained quantized checkpoints
+
+Pre-built W4A4 packs (all 4 LIBERO suites: object / spatial / goal / long),
+freshly calibrated with this codebase:
+
+| model | HF repo | files |
+|-------|---------|-------|
+| GR00T-N1.5 | [`ucmp137538/Omega-QVLA-GR00T-N1.5-LIBERO-W4A4`](https://huggingface.co/ucmp137538/Omega-QVLA-GR00T-N1.5-LIBERO-W4A4) | `gr00t_<suite>/quantized.pt` |
+| pi0.5 | [`ucmp137538/Omega-QVLA-pi05-LIBERO-W4A4`](https://huggingface.co/ucmp137538/Omega-QVLA-pi05-LIBERO-W4A4) | `pi05_<suite>/quantized.pt` |
+
+These are quantization **packs**, not standalone models — load them on top of the
+original FP checkpoint (`youliangtan/gr00t-n1.5-libero-<suite>-posttrain` /
+the converted pi0.5 PyTorch checkpoint) via the eval scripts below
+(`GR00T_GPTQ_PATH_OVERRIDE` / `OPENPI_GPTQ_PATH`). See each repo's card for usage.
+
 ---
 
 ## 1. Requirements
