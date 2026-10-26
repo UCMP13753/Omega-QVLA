@@ -217,3 +217,10 @@ env CONDA_ROOT=$CONDA_ROOT METHOD=hybrid SUITE=$SUITE WBITS=4 ABITS=4 \
   collapse under A4 — keep them out of the include regex.
 - Short-suite (50-episode) success rate has ±5–10pp single-seed variance —
   average over seeds/suites before calling a method-level win.
+
+## AAAI rebuttal: controlled Narval experiments
+
+See [scripts/narval_rebuttal/README.md](scripts/narval_rebuttal/README.md) for
+Hadamard-only/composite controls, backbone/head isolation, weight-only audits,
+layerwise diagnostics, honest fake-quant runtime profiling, and dependency-aware
+single-GPU Slurm submission. Run preflight and smoke before the full plan.

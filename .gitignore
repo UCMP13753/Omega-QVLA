@@ -155,3 +155,6 @@ results/**/logs/
 !experiment_results/**/*.png
 !experiment_results/**/*.csv
 !experiment_results/**/*.pdf
+
+# Local cluster configuration contains machine-specific paths.
+scripts/narval_rebuttal/config.local.sh
