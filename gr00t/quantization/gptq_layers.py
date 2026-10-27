@@ -259,6 +259,7 @@ class GptqLinear(nn.Module):
         self.in_features = base.in_features
         self.out_features = base.out_features
         self.cfg = cfg
+        self._perstep_backend = None
         self.weight_bits = int(weight_bits if weight_bits is not None else (cfg.weight_bits or 0))
         self.bias = nn.Parameter(base.bias.detach().clone()) if base.bias is not None else None
         # Drop the duplicate FP weight buffer when quantization is available — only
@@ -317,7 +318,18 @@ class GptqLinear(nn.Module):
             self._has_svdquant = False
         else:
             # Build the quantized dense weight; only keep _weight_q.
-            weight_q_t = self._build_weight_from_record(record, name, base.weight)
+            if "perstep_backend" in record:
+                from .perstep_backends import PerStepBackend
+                self._perstep_backend = PerStepBackend(record["perstep_backend"]).to(base.weight.device)
+                if (self._perstep_backend.in_features != self.in_features or
+                        self._perstep_backend.out_features != self.out_features):
+                    raise ValueError(f"Packed per-step shape mismatch for {name}")
+                # The packed child module owns the live weights. Do not also
+                # retain a dense residual weight on the GPU.
+                weight_q_t = torch.empty(0, dtype=base.weight.dtype, device=base.weight.device)
+                self._record_a_bits = 4
+            else:
+                weight_q_t = self._build_weight_from_record(record, name, base.weight)
             self.register_buffer("_weight_q", weight_q_t, persistent=False)
             if keep_fp_env:
                 self.register_buffer("_weight_fp", base.weight.detach().clone(), persistent=False)
@@ -625,7 +637,7 @@ class GptqLinear(nn.Module):
             if self._record_a_bits is not None
             else int(self.cfg.act_bits or 0)
         )
-        if eff_act_bits > 0:
+        if eff_act_bits > 0 and self._perstep_backend is None:
             # Per-DiT-step scale dispatch: if this layer has an act_scale_table
             # AND a denoising-step context is active AND the step is in range,
             # use that step's row.
@@ -673,9 +685,15 @@ class GptqLinear(nn.Module):
             if (x_q.is_cuda and torch.cuda.is_bf16_supported())
             else torch.float32
         )
-        x_q_p = x_q.to(promote_dtype)
-        w_p = weight.to(dtype=promote_dtype, device=x_q.device)
-        y = torch.nn.functional.linear(x_q_p, w_p, None)
+        if self._perstep_backend is not None:
+            from .dit_step_context import get_current_dit_step
+            # Kernels return FP32 accumulators; cast to the existing main-dot
+            # dtype before the unchanged low-rank/output-rotation/bias path.
+            y = self._perstep_backend(x, get_current_dit_step(), eff_act_bits).to(promote_dtype)
+        else:
+            x_q_p = x_q.to(promote_dtype)
+            w_p = weight.to(dtype=promote_dtype, device=x_q.device)
+            y = torch.nn.functional.linear(x_q_p, w_p, None)
         # SVDQuant: add lowrank correction y += (x_s @ B) @ A.T (also promoted)
         if self._has_svdquant and x_s_for_lowrank is not None:
             B = self._lowrank_B.to(dtype=promote_dtype, device=x_q.device)

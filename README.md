@@ -2,6 +2,9 @@
 
 W4A4 quantization for the GR00T-N1.5 (and pi0.5) LIBERO action heads.
 
+Experimental per-step packed backends and single-RTX-4080 comparison commands:
+[docs/perstep_4080.md](docs/perstep_4080.md).
+
 **The recipe** (per side, applied to both the LLM/backbone and the DiT/action head):
 
 | side | rotation | quantizer | per-step |
